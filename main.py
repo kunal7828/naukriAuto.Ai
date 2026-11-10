@@ -25,7 +25,7 @@ import json
 from app.ai.llm import init_llm
 from app.utils.file_loader import get_resume, get_system_prompt, get_human_prompt
 from app.utils.lock import acquire_lock_or_exit
-from app.bot.bot_runner import run_bot
+from app.flows.runner import run_bot
 
 
 async def main():

@@ -7,10 +7,10 @@ from playwright.async_api import async_playwright
 from langchain_groq import ChatGroq
 
 from app.utils.human import human_delay
-from app.bot.handle_login import handleLogin
-from app.bot.open_job_page import openJobPage, searchJobs
-from app.bot.select_jobs import selectJobInBulk, _seen_job_keys
-from app.bot.apply_to_jobs import applyInBulk
+from app.pages.login_page import handleLogin
+from app.pages.jobs_page import openJobPage, searchJobs
+from app.pages.jobs_page import selectJobInBulk, _seen_job_keys
+from app.pages.apply_page import applyInBulk
 from app.utils.report import save_and_print_report
 from app.utils.applied_log import append_applied, read_applied_log
 from app.utils.daily_report import refresh as refresh_dashboard

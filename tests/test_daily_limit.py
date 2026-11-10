@@ -5,7 +5,7 @@ import unittest
 from datetime import datetime
 from unittest.mock import patch
 
-from app.bot import bot_runner
+from app.flows import runner as bot_runner
 from app.utils import applied_log
 
 

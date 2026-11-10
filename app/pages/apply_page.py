@@ -1,7 +1,7 @@
 from playwright.async_api import Page
 import re
 from langchain_groq import ChatGroq
-from app.bot.handle_questions import handle_questionnaire
+from app.pages.questionnaire_page import handle_questionnaire
 from app.utils.human import human_delay
 from app.utils.report import record_applied_jobs, record_failed_jobs
 

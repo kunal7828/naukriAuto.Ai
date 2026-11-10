@@ -4,7 +4,7 @@ Reports are only written at the end of a session, so a hard kill (power loss,
 `kill`, unhandled crash) used to lose the day's count and let the next run
 overshoot the daily limit. This module appends one JSON record per line to
 ``data/applied_log.jsonl`` immediately after each batch, so the count survives
-any crash. ``bot_runner._load_prior_applications()`` reads it together with
+any crash. ``app.flows.runner._load_prior_applications()`` reads it together with
 the reports.
 """
 import json

@@ -1,17 +1,15 @@
+"""Recruiter questionnaire panel: detect questions, get options, answer (Page Object)."""
 import asyncio
 import random
+import re
+from typing import Any
 from playwright.async_api import Page, Locator
-
-from app.utils.human import human_delay, human_typing, human_mouse_move
 from langchain_groq import ChatGroq
-from app.utils.bot_question import getNaukriBotQuestion
-from app.bot.handle_options import getAvailableOptions
+from app.utils.human import human_delay, human_typing, human_mouse_move
 from app.ai.ai_answer import getAiAnswer
 from app.repository.repo import findAnswerFromPreviousResponse, saveResponseToDB
 from app.utils.answer_sheet import find_curated_answer
 from app.utils.report import record_qa
-from typing import Any
-
 
 # Candidate selectors for the Naukri chat/questionnaire panel container.
 _PANEL_SELECTORS = [
@@ -244,26 +242,6 @@ async def handleTextResponse(input_box: Locator, answer: str, page: Page):
     await human_delay(1, 2)
 
 
-async def handleOptionResponse(available_options: list[str], answer: str | Any, chat_container: Locator, page: Page):
-    matched = next((opt for opt in available_options if opt.lower() in answer.lower()), None)
-    if matched:
-        target = chat_container.get_by_text(matched, exact=True).last
-        await human_mouse_move(page)
-        await target.click(force=True)
-        # Force check hidden radio button to enable 'Save'
-        radio_id = await target.get_attribute("for")
-        if radio_id:
-            try:
-                await page.locator(f"#{radio_id}").check(force=True)
-            except Exception:
-                pass
-    else:
-        try:
-            await chat_container.get_by_text(answer).last.click(force=True)
-        except Exception:
-            pass
-
-
 async def clickSaveButton(page: Page, panel: Locator | None = None):
     save_btn = await _find_save(page, panel) if panel is not None else None
     if save_btn is not None:
@@ -285,3 +263,152 @@ async def clickSaveButton(page: Page, panel: Locator | None = None):
         await human_delay(1, 2)
     except Exception:
         pass
+
+
+async def getAvailableOptions(chat_container: Locator):
+    """Collect the visible answer options (labels/buttons/chips) from the panel."""
+    available_options: list[str] = []
+
+    # Targeted search inside the chat container for option labels and buttons
+    # We exclude '.ssrc__radio' to avoid capturing hidden input values directly, preferring visible labels.
+    options_locator = chat_container.locator('.ssrc__label, label, button, .chip, [role="button"]')
+    for i in range(await options_locator.count()):
+        try:
+            el = options_locator.nth(i)
+            txt = await el.inner_text()
+            if not txt:
+                txt = await el.get_attribute("value")
+            if txt and 0 < len(txt.strip()) < 50:
+                available_options.append(txt.strip())
+        except Exception:
+            continue
+
+    available_options = list(dict.fromkeys(available_options))[-10:]  # Deduplicate and keep most recent
+    if available_options:
+        print(f"🔘 Options detected: {available_options}")
+
+    return available_options
+
+
+def _tokens(text: str) -> set[str]:
+    return set(re.findall(r"[a-z0-9]+", (text or "").lower()))
+
+
+async def _click_option(chat_container: Locator, option: str, page: Page) -> None:
+    """Click an option label and force-check its radio button if present."""
+    target = chat_container.get_by_text(option, exact=True).last
+    try:
+        if await target.count() == 0:
+            target = chat_container.get_by_text(option, exact=False).last
+        await human_mouse_move(page)
+        await target.click(force=True)
+    except Exception:
+        try:
+            await chat_container.get_by_text(option, exact=False).last.click(force=True)
+        except Exception:
+            pass
+    # Force check hidden radio button to enable 'Save'
+    try:
+        radio_id = await target.get_attribute("for")
+        if radio_id:
+            await page.locator(f"#{radio_id}").check(force=True)
+    except Exception:
+        pass
+
+
+async def handleOptionResponse(available_options: list[str], answer: str | object,
+                               chat_container: Locator, page: Page):
+    """Select the option that best matches the generated answer.
+
+    Matching order: exact -> substring (either direction) -> word overlap.
+    If nothing matches reasonably, prefer a "Skip this question" option.
+    """
+    ans = str(answer or "").strip()
+
+    matched = next(
+        (o for o in available_options if o.strip().lower() == ans.lower()), None
+    )
+    if not matched:
+        lowered = ans.lower()
+        matched = next(
+            (o for o in available_options
+             if o.strip().lower() in lowered or lowered in o.strip().lower()),
+            None,
+        )
+    if not matched:
+        ans_tokens = _tokens(ans)
+        best, best_score = None, 0
+        for option in available_options:
+            score = len(ans_tokens & _tokens(option))
+            if score > best_score:
+                best, best_score = option, score
+        if best is not None and best_score > 0:
+            matched = best
+
+    if matched:
+        print(f"🔘 Naukri AutoAI: Selecting option '{matched}' for answer '{ans}'.")
+        await _click_option(chat_container, matched, page)
+        return
+
+    skip = next(
+        (o for o in available_options if "skip" in o.lower()), None
+    )
+    if skip:
+        print(f"🔘 Naukri AutoAI: No matching option; selecting '{skip}'.")
+        await _click_option(chat_container, skip, page)
+        return
+
+    print(f"⚠️ Naukri AutoAI: No matching option for answer '{ans}'; leaving unanswered.")
+
+
+# Candidate selectors for Naukri chatbot message bubbles (question text).
+# The Naukri apply/chat UI has changed over time, so try several.
+_QUESTION_SELECTORS = [
+    '.botItem .botMsg span',
+    '.botItem .botMsg',
+    '[class*="botMsg"]',
+    '[class*="botMessage"]',
+    '[class*="chat"] [class*="msg"]',
+    '[class*="chat"] [class*="Message"]',
+    '[class*="message"]',
+    '[class*="Message"]',
+]
+
+# Text that is clearly not a real question (greeting / instructions / confirmations).
+_NON_QUESTION_HINTS = (
+    "thank you for showing interest",
+    "kindly answer all the recruiter",
+    "successfully apply for the job",
+    "your application was successful",
+    "application was successful",
+    "successfully applied",
+    "thank you for applying",
+    "your application has been submitted",
+    "application has been submitted",
+)
+
+
+async def getNaukriBotQuestion(page: Page) -> str | None:
+    """Return the latest recruiter/bot question text from the Naukri chat panel."""
+    for selector in _QUESTION_SELECTORS:
+        try:
+            loc = page.locator(selector)
+            count = await loc.count()
+            if count == 0:
+                continue
+            # Walk backwards from the most recent bubble and return the first
+            # meaningful question (skip greetings / instructions).
+            for i in range(count - 1, -1, -1):
+                try:
+                    raw = (await loc.nth(i).inner_text()).strip()
+                except Exception:
+                    continue
+                if not raw:
+                    continue
+                lowered = raw.lower()
+                if any(hint in lowered for hint in _NON_QUESTION_HINTS):
+                    continue
+                return raw
+        except Exception:
+            continue
+    return None

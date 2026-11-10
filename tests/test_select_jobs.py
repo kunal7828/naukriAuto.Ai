@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from app.bot import select_jobs
+from app.pages import jobs_page as select_jobs
 
 
 class RolePriorityTests(unittest.TestCase):

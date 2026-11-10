@@ -127,17 +127,26 @@ Covers the daily-limit counting (reports + durable log), role-priority ranking, 
 
 ```text
 app/
+  pages/           Page Object Model layer — one module per Naukri page/panel
+    login_page.py        Login flow (open Naukri, sign in, saved-session detection)
+    jobs_page.py         Jobs listing: open tabs, search by role, select job cards
+    apply_page.py        Bulk Apply on ticked cards, outcome detection, external tabs
+    questionnaire_page.py Recruiter chat panel: detect questions, get options, answer
+  flows/
+    runner.py            Orchestration: sessions, retries, daily limit, reporting
   ai/              LLM initialization and AI answer generation
-  bot/             Browser automation and application workflow
   config/          Environment and runtime configuration
   database/        Database utilities
   repository/      Local response storage helpers
-  utils/           File loading, human interaction simulation, parsing, and run reports
+  utils/           File loading, human interaction simulation, parsing, run reports,
+                   applied-log, answer sheet, diagnostics, lock, notifier
 data/
   resume.txt       Resume context for AI-generated responses
   system_prompt.txt
   human_prompt.txt
+  resume/          Resume file + Question_Answers.xlsx (your curated answers)
   reports/         Generated per-run JSON/Excel reports (not committed)
+tests/             Unit tests (daily limit, answer sheet, role priority)
 main.py            Application entry point
 ```
 
