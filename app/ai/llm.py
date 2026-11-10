@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 from langchain_groq import ChatGroq
 from langchain_community.cache import SQLiteCache
 from langchain_core.globals import set_llm_cache

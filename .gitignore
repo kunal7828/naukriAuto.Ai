@@ -1,9 +1,24 @@
 .env
 .venv/
+venv/
+venv312/
 __pycache__/
 *.db
 *.log
+*.lock
 resume.txt
 resume.md
 db.json
 data/reports/
+data/resume/
+data/diagnostics/
+data/applied_log.jsonl
+data/error_log.jsonl
+storage_state.json
+.kilo/
+.vscode/
+
+# Local-only duplicates / personal files
+Kunal_Sharma_Senior_QA_Automation_Engineer_Resume_Updated.docx
+main - Copy.py
+data/error_log - Copy.jsonl

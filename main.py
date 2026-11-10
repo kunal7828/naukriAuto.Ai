@@ -24,6 +24,7 @@ import json
 
 from app.ai.llm import init_llm
 from app.utils.file_loader import get_resume, get_system_prompt, get_human_prompt
+from app.utils.lock import acquire_lock_or_exit
 from app.bot.bot_runner import run_bot
 
 
@@ -49,7 +50,11 @@ async def main():
         print("❌ Naukri AutoAI: Prompts Not Found.")
         return
 
-    await run_bot(llm, resume, system_prompt, human_prompt)
+    lock = acquire_lock_or_exit()
+    try:
+        await run_bot(llm, resume, system_prompt, human_prompt)
+    finally:
+        lock.release()
 
 
 if __name__ == "__main__":
