@@ -155,6 +155,10 @@ async def _find_job_cards(page: Page):
         '[class*="jobTuple"]',
         '[class*="jobCard"]',
         '[class*="job-card"]',
+        '.cust-job-tuple',
+        '[class*="cust-job-tuple"]',
+        '.srp-jobtuple-wrapper',
+        '[class*="srp-jobtuple"]',
         '.srp-jobtuple',
         '.job-card',
     ]
